@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.doit.gw.mapper.board.JaryoMapperImpl">
+
+	<!-- 사용자 자료게시판 전체조회 -->
+	<select id="selJaryoAllUser" resultType="FileListVo">
+		SELECT e.EBOARD_NO, e.GUBUN_NO , e.CGORY_NO, 
+				e.EMP_ID, e.EMP_NAME,TO_CHAR(e.EBOARD_REGDATE, 'YYYY-MM-DD')EBOARD_REGDATE, 
+				e.EBOARD_DELFLAG, 
+				f.FLIST_SEQ, f.FLIST_UUID, f.FLIST_ORIGINNAME, 
+				f.FLIST_SIZE, f.FLIST_UPLOADPATH 
+		FROM ENTRBOARD e LEFT JOIN FILELIST f 
+		ON e.EBOARD_NO = f.EBOARD_NO 
+		WHERE e.CGORY_NO = '201' AND e.EBOARD_DELFLAG = 'N'
+		ORDER BY EBOARD_REGDATE DESC
+	</select>
+	
+	<!-- 사용자 자료글 입력  -->
+	<insert id="insJaryoRoot" parameterType="FileListVo">
+		INSERT INTO ENTRBOARD
+				(EBOARD_NO, GUBUN_NO , CGORY_NO, 
+				EMP_ID, EMP_NAME, EBOARD_TITLE, 
+				EBOARD_CONTENT, EBOARD_READCOUNT, EBOARD_REGDATE, 
+				EBOARD_DELFLAG)
+		VALUES(ENTRYBOARD_SEQ.NEXTVAL, '200', '201', 
+					#{emp_id}, #{emp_name}, '', 
+					'', 0, CURRENT_DATE, 
+					'N')
+	</insert>
+	
+	<!-- 사용자 자료글 입력시 파일 등록 -->
+	<insert id="insJaryoAttach" parameterType="FileListVo">
+		INSERT INTO FILELIST
+			(FLIST_SEQ, GUBUN_NO, EBOARD_NO , 
+			FLIST_UUID, FLIST_ORIGINNAME, FLIST_SIZE, 
+			FLIST_UPLOADPATH)
+		VALUES(SEQ_FILELIST.NEXTVAL, '200',(SELECT MAX(EBOARD_NO) FROM ENTRBOARD e2) , 
+			#{flist_uuid}, #{flist_originname}, #{flist_size}, 
+			#{flist_uploadpath})
+	</insert>
+	
+	<!-- 사용자 자료게시글 단일 삭제처리 -->
+	<update id="updJaryoDelflagUser" parameterType="java.util.Map">
+		UPDATE ENTRBOARD SET EBOARD_DELFLAG = 'Y' WHERE EBOARD_NO = #{eboard_no}
+	</update>
+	
+	<!-- 관리자 자료게시글 전체 조회 -->
+	<select id="selJaryoAllAdmin" resultType="FileListVo"> 
+		SELECT e.EBOARD_NO, e.GUBUN_NO, e.CGORY_NO, 
+			e.EMP_ID, e.EMP_NAME,e.EBOARD_REGDATE, 
+			e.EBOARD_DELFLAG, f.FLIST_SEQ, f.FLIST_ORIGINNAME, 
+			f.FLIST_SIZE, f.FLIST_UPLOADPATH 
+		FROM ENTRBOARD e LEFT JOIN FILELIST f 
+			ON e.EBOARD_NO = f.EBOARD_NO 
+			WHERE e.CGORY_NO = '201'
+	</select>
+	
+	<!-- 관리자 자료게시글 숨김/보임처리 -->
+	<update id="updJaryoDelflagAdmin" parameterType="java.util.List">
+		UPDATE ENTRBOARD SET EBOARD_DELFLAG =  
+			CASE EBOARD_DELFLAG  WHEN 'N' THEN 'Y' ELSE 'N' END
+			WHERE EBOARD_NO IN
+		<foreach collection="list" item="eboard_no" open="(" separator="," close=")">
+			#{eboard_no}
+		</foreach>
+	</update>
+	
+	
+	<!-- 관리자 자료글 DB 완전삭제 -->
+	<delete id="delJaryoAttach" parameterType="java.util.List">
+		DELETE FROM ENTRBOARD e 
+ 		 WHERE EXISTS (SELECT 1 FROM FILELIST f WHERE e.EBOARD_NO = f.EBOARD_NO AND e.EBOARD_NO IN 
+ 		 <foreach collection="list" item="eboard_no" open="(" separator="," close=")">
+ 			 #{eboard_no}
+ 		 </foreach>
+ 		 )
+	</delete>
+	<delete id="delJaryoRoot" parameterType="java.util.List">
+	DELETE FROM ENTRBOARD e 
+ 	 WHERE e.EBOARD_NO IN 
+ 	 	 <foreach collection="list" item="eboard_no" open="(" separator="," close=")">
+ 			 #{eboard_no}
+ 		 </foreach>
+	</delete>
+</mapper>

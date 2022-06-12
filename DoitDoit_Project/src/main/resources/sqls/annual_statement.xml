@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.doit.gw.mapper.ann.AnnMapperImpl">
+
+	<!-- 연차 등록(사원등록시) -->
+	<insert id="insAnnual">
+		INSERT INTO ANNUAL (EMP_ID)
+			VALUES ((SELECT MAX(EMP_ID) FROM EMP WHERE EMP_AUTH = 'ROLE_USER'))
+	</insert>
+
+
+	<!-- 매년 1월 1일 -->
+	<!-- 입사 1년차 이상 사원 조회 -->
+	<select id="selEmpYear" resultType="EmpVo">
+		SELECT EMP_ID 
+			FROM EMP
+			WHERE TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') >= TO_CHAR(ADD_MONTHS(EMP_REGDATE, 12), 'YYYY-MM-DD')
+			AND EMP_AUTH = 'ROLE_USER'
+	</select>
+	<!-- 입사 1년차 이상 사원 연차 초기화 -->	
+	<update id="updAnnualReset" parameterType="java.util.Map">
+		UPDATE ANNUAL SET ANN_ADD = 0, ANN_USE = 0, ANN_REST = 0
+			WHERE EMP_ID IN 
+		<foreach collection="emp_ids" item="emp_id" open="(" close=")" separator=",">
+			#{emp_id}
+		</foreach>		
+	</update>
+	<!-- 입사 1년차 이상 사원 연차(15개) 부여(insert) -->
+	<insert id="insAnnAddYear" parameterType="java.lang.String">
+		INSERT INTO ANN_ADD (ANN_ADD_NO, ANN_ADD_CONTENT, ANN_ADD_DAYS, EMP_ID)
+		VALUES (SEQ_ANN_ADD.NEXTVAL, '연차', 15, #{emp_id})
+	</insert>	
+	<!-- 입사 1년차 이상 사원 연차(15개) 부여(update) -->
+	<update id="updAnnualYear" parameterType="java.util.Map">
+		UPDATE ANNUAL SET ANN_ADD = ANN_ADD + 15, ANN_REST = ANN_REST +15
+			WHERE EMP_ID IN 
+		<foreach collection="emp_ids" item="emp_id" open="(" close=")" separator=",">
+			#{emp_id}
+		</foreach>
+	</update>	
+	
+	
+	<!-- 매월 1일 -->
+	<!-- 입사 1년차 안되며 만근인 사원 조회 -->
+	<select id="selEmpMonth" parameterType="java.lang.Integer" resultType="EmpVo">
+	<![CDATA[
+		SELECT EMP_ID 
+		FROM EMP JOIN ANNUAL USING(EMP_ID)
+		WHERE TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') < TO_CHAR(ADD_MONTHS(EMP_REGDATE, 12), 'YYYY-MM-DD')
+		AND EMP_AUTH = 'ROLE_USER'
+		AND ANN_WORK_DAYS = #{days}
+	]]>	
+	</select>
+	<!-- 입사 1년차 안된 사원 만근시 연차(1개) 부여(insert) -->
+	<insert id="insAnnAddMonth" parameterType="java.lang.String">
+		INSERT INTO ANN_ADD (ANN_ADD_NO, ANN_ADD_CONTENT, ANN_ADD_DAYS, EMP_ID)
+		VALUES (SEQ_ANN_ADD.NEXTVAL, '만근', 1, #{emp_id})
+	</insert>	
+	<!-- 입사 1년차 안된 사원 만근시 연차(1개) 부여(update) -->
+	<update id="updAnnualMonth" parameterType="java.util.Map">
+		UPDATE ANNUAL SET ANN_ADD = ANN_ADD + 1, ANN_REST = ANN_REST +1
+			WHERE EMP_ID IN 
+		<foreach collection="emp_ids" item="emp_id" open="(" close=")" separator=",">
+			#{emp_id}
+		</foreach>		
+	</update>
+	<!-- 근무일수 초기화 -->
+	<update id="updAnnualMonthWork">
+		UPDATE ANNUAL SET ANN_WORK_DAYS = 0
+	</update>	
+	
+	<!-- 매일 -->
+	<!-- 매일 입사 1년차된 사원 조회 -->
+	<select id="selEmpEveryDay" resultType="EmpVo">
+		SELECT EMP_ID 
+		FROM EMP
+		WHERE TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') = TO_CHAR(ADD_MONTHS(EMP_REGDATE, 12), 'YYYY-MM-DD')
+		AND EMP_AUTH = 'ROLE_USER'
+	</select>
+	<!-- 매일 출퇴근 시간 초기화 -->
+	<update id="updAnnualEveryDay">
+		UPDATE ANNUAL SET ANN_IN_TIME = NULL , ANN_OUT_TIME = NULL, ANN_WORK_DAYS = ANN_WORK_DAYS 	
+	</update>
+	
+	<!-- 관리자 연차 조회 -->
+	<select id="selAnnualAdmin" parameterType="java.lang.String" resultType="AnnualVo">
+		SELECT DEPT_NAME, "RANK_NAME", EMP_ID, 
+			   EMP_NAME, ANN_ADD, ANN_USE, ANN_REST  
+			FROM ANNUAL JOIN EMP USING(EMP_ID) JOIN DEPT USING(DEPT_NO) JOIN "RANK" USING("RANK_NO")
+			WHERE DEPT_NO = #{dept_no}
+			AND STATE_NO = '01'
+			ORDER BY RANK_NO DESC, EMP_ID	
+	</select>
+	
+	<!-- 관리자 연차 부여 -->
+	<insert id="insAnnAdd" parameterType="AnnAddVo">
+		INSERT INTO ANN_ADD (ANN_ADD_NO, ANN_ADD_CONTENT, ANN_ADD_DAYS, EMP_ID)
+		VALUES (SEQ_ANN_ADD.NEXTVAL, #{ann_add_content}, #{ann_add_days}, #{emp_id})
+	</insert>
+	<update id="updAnnualAdd" parameterType="java.util.Map">
+		UPDATE ANNUAL SET ANN_ADD = ANN_ADD + #{ann_add_days}, ANN_REST = ANN_REST + #{ann_add_days}
+		WHERE EMP_ID IN 
+		<foreach collection="emp_ids" item="emp_id" open="(" close=")" separator=",">
+			#{emp_id}
+		</foreach>		
+	</update>
+	
+	<!-- 사원 연차 조회 -->
+	<select id="selAnnualEmp" parameterType="java.lang.String" resultType="AnnualVo">
+		SELECT ANN_ADD, ANN_USE, ANN_REST 
+			FROM ANNUAL
+			WHERE EMP_ID = #{emp_id}	
+	</select>
+	<select id="selAnnAddEmp" parameterType="java.lang.String" resultType="AnnAddVo">
+		SELECT ANN_ADD_NO, EMP_NAME, ANN_ADD_CONTENT, ANN_ADD_DAYS, ANN_ADD_DATE  
+			FROM ANN_ADD JOIN EMP USING (EMP_ID)
+			WHERE EMP_ID = #{emp_id}
+			ORDER BY ANN_ADD_NO	DESC
+	</select>
+	<select id="selAnnUseEmp" parameterType="java.lang.String" resultType="AnnUseVo">
+		SELECT ANN_USE_NO, EMP_NAME, ANN_USE_CONTENT, 
+			   ANN_USE_PERIOD, ANN_USE_DAYS ,ANN_USE_DATE 
+			FROM ANN_USE JOIN EMP USING (EMP_ID)
+			WHERE EMP_ID = #{emp_id}
+			ORDER BY ANN_USE_NO DESC
+	</select>
+	
+	<!-- 출퇴근 등록 -->
+	<select id="selAnuualWorkIn" parameterType="java.lang.String" resultType="AnnualVo">
+		SELECT ANN_IN_TIME  
+		FROM ANNUAL
+		WHERE EMP_ID = (
+			SELECT EMP_ID 
+			FROM EMP 
+			WHERE EMP_NFC = #{emp_nfc}
+		)	
+	</select>
+	<update id="updAnnualWorkIn" parameterType="java.lang.String">
+		UPDATE ANNUAL SET ANN_IN_TIME = CURRENT_DATE
+		WHERE EMP_ID = (
+			SELECT EMP_ID 
+			FROM EMP
+			WHERE EMP_NFC = #{emp_nfc}
+		)	
+	</update>
+	<update id="updAnnualWorkOut" parameterType="java.lang.String">
+		UPDATE ANNUAL SET ANN_OUT_TIME = CURRENT_DATE, 
+						  ANN_WORK_DAYS = ANN_WORK_DAYS +1 
+		WHERE EMP_ID = (
+			SELECT EMP_ID 
+			FROM EMP
+			WHERE EMP_NFC = #{emp_nfc}
+		)
+	</update>
+	
+	<!-- 연차 사용 -->
+	<select id="searchAppro" parameterType="java.lang.Integer" resultType="ApproVo">
+		SELECT APPRO_LINE_NO, EMP_ID, APPRO_CONTENT
+			FROM APPROVAL
+			WHERE APPRO_LINE_NO = #{appro_line_no}	
+	</select>
+	<insert id="insAnnUse" parameterType="java.util.Map">
+		INSERT INTO ANN_USE (ANN_USE_NO, ANN_USE_CONTENT, ANN_USE_DAYS, 
+							 ANN_USE_PERIOD, ANN_USE_DATE, EMP_ID)
+		VALUES (SEQ_ANN_USE.NEXTVAL, #{use_content}, #{use_days}, 
+		        #{use_period}, #{use_date}, #{emp_id})
+	</insert>
+	<update id="updAnnualUse" parameterType="java.util.Map">
+		UPDATE ANNUAL SET ANN_USE = ANN_USE + #{use_days}, ANN_REST = ANN_REST - #{use_days}, 
+									ANN_WORK_DAYS = ANN_WORK_DAYS + #{use_work_days}
+		WHERE EMP_ID = #{emp_id}		
+	</update>
+	
+</mapper>

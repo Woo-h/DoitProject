@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.doit.gw.mapper.board.EntrMapperImpl">
+
+	<!-- 홈화면에서 사용할 최근글 조회 -->
+	<select id="selEboardResent" resultType="EntrBoardVo">
+		<![CDATA[SELECT EBOARD_NO, GUBUN_NO, CGORY_NO,
+						EMP_ID, EMP_NAME, EBOARD_TITLE,
+						EBOARD_CONTENT, EBOARD_REGDATE, RNK
+				FROM (SELECT EBOARD_NO , GUBUN_NO, 
+						CASE WHEN CGORY_NO='101' THEN '[일반]' 
+						WHEN CGORY_NO='103' THEN '[인사]'
+						ELSE '[일정]' END AS CGORY_NO,
+						EMP_ID ,EMP_NAME, EBOARD_TITLE,SUBSTR(EBOARD_CONTENT, 1, 50) EBOARD_CONTENT,
+						EBOARD_READCOUNT, TO_CHAR(EBOARD_REGDATE, 'YYYY-MM-DD') EBOARD_REGDATE, EBOARD_DELFLAG,
+						DENSE_RANK() OVER (ORDER BY EBOARD_REGDATE DESC) AS RNK
+						FROM ENTRBOARD e WHERE GUBUN_NO = 100 AND EBOARD_DELFLAG ='N')
+				WHERE RNK <=3
+		]]>
+	</select>
+
+
+	<!-- 사원 게시글 전체조회 -->
+	<select id="selEboardAllUser" resultType="EntrBoardVo">
+		SELECT EBOARD_NO, GUBUN_NO, 
+			CASE WHEN CGORY_NO='101' THEN '[일반]' 
+				WHEN CGORY_NO='103' THEN '[인사]'
+				ELSE '[일정]' END AS CGORY_NO,
+			EMP_ID,EMP_NAME, EBOARD_TITLE,
+			EBOARD_READCOUNT, TO_CHAR(EBOARD_REGDATE, 'YYYY-MM-DD') EBOARD_REGDATE
+		FROM ENTRBOARD
+		WHERE EBOARD_DELFLAG ='N'AND CGORY_NO IN(101,103,302) 
+		ORDER BY EBOARD_REGDATE DESC
+	</select>
+	
+	<!-- 사원 게시글 카테고리별 조회 -->
+	<select id="selEboardCgoryUser"  parameterType="java.util.Map"  resultType="EntrBoardVo">
+		SELECT EBOARD_NO , GUBUN_NO, 
+				CASE WHEN CGORY_NO='101' THEN '[일반]' 
+				WHEN CGORY_NO='103' THEN '[인사]'
+				ELSE '[일정]' END AS CGORY_NO, 
+			EMP_ID,EMP_NAME, EBOARD_TITLE,
+			EBOARD_READCOUNT, TO_CHAR(EBOARD_REGDATE, 'YYYY-MM-DD') EBOARD_REGDATE
+		FROM ENTRBOARD
+		WHERE CGORY_NO = #{cgory_no} AND EBOARD_DELFLAG ='N'
+		ORDER BY EBOARD_REGDATE DESC
+	</select>
+
+	<!-- 필독 게시글 3개 조회 -->
+	<select id="selEboardFildocThree" resultType="EntrBoardVo">
+		SELECT ROW_NUM,
+		EBOARD_NO, GUBUN_NO, CGORY_NO, 
+		EMP_ID,EMP_NAME, EBOARD_TITLE,
+		EBOARD_READCOUNT, TO_CHAR(EBOARD_REGDATE, 'YYYY-MM-DD') EBOARD_REGDATE
+		FROM (
+			SELECT ROW_NUMBER() OVER(ORDER BY EBOARD_REGDATE DESC) ROW_NUM,
+			EBOARD_NO, GUBUN_NO, CGORY_NO, 
+			EMP_ID,EMP_NAME, EBOARD_TITLE,
+			EBOARD_READCOUNT, EBOARD_REGDATE
+			FROM ENTRBOARD WHERE CGORY_NO = 102 AND EBOARD_DELFLAG ='N')
+			WHERE ROW_NUM BETWEEN 1 AND 3
+	</select>
+	
+	<!-- 필독 게시글 전체조회 -->
+	<select id="selEboardFildocAll" resultType="EntrBoardVo">
+		SELECT EBOARD_NO, GUBUN_NO, CGORY_NO, 
+		EMP_ID,EMP_NAME, EBOARD_TITLE,
+		EBOARD_READCOUNT, TO_CHAR(EBOARD_REGDATE, 'YYYY-MM-DD') EBOARD_REGDATE
+		FROM ENTRBOARD 
+		WHERE CGORY_NO = 102 AND EBOARD_DELFLAG ='N'
+		ORDER BY EBOARD_REGDATE DESC
+	</select>
+	
+	<!-- 공지게시글 상세조회 -->
+	<select id="selEboardDetail" parameterType="java.lang.String" resultType="EntrBoardVo">
+		SELECT EBOARD_NO , GUBUN_NO, CGORY_NO,
+			EMP_ID ,e.CALD_ID,EMP_NAME, EBOARD_TITLE,
+			EBOARD_CONTENT,EBOARD_READCOUNT, EBOARD_REGDATE, 
+			EBOARD_DELFLAG, CALD_START, CALD_END
+		FROM ENTRBOARD e LEFT JOIN CALENDAR c ON e.CALD_ID = c.CALD_ID 
+		WHERE EBOARD_NO = #{eboard_no}
+	</select>
+	
+	<!-- 조회수 증가 -->
+	<update id="updEboardReadCnt" parameterType="java.lang.String">
+		 UPDATE ENTRBOARD 
+		 SET EBOARD_READCOUNT = (SELECT EBOARD_READCOUNT FROM ENTRBOARD WHERE EBOARD_NO = #{eboard_no})+1
+ 			WHERE EBOARD_NO = #{eboard_no}
+	</update>
+	
+	<!-- 관리자 공지게시판 전체조회 -->
+	<select id="selEboardAllAdmin" resultType="EntrBoardVo">
+		SELECT EBOARD_NO , GUBUN_NO, 
+				CASE WHEN CGORY_NO='101' THEN '[일반]' 
+				WHEN CGORY_NO='103' THEN '[인사]'
+				ELSE '[일정]' END AS CGORY_NO, 
+				EMP_ID ,EMP_NAME, EBOARD_TITLE,
+				EBOARD_READCOUNT, TO_CHAR(EBOARD_REGDATE, 'YYYY-MM-DD') EBOARD_REGDATE, EBOARD_DELFLAG
+			FROM ENTRBOARD     
+			WHERE CGORY_NO NOT IN('301','201')
+			ORDER BY EBOARD_REGDATE DESC
+	</select>
+	
+	<!-- 관리자 공지게시판 카테고리별 조회 -->
+	<select id="selEboardCgoryAdmin" parameterType="java.util.Map" resultType="EntrBoardVo">
+		SELECT EBOARD_NO , GUBUN_NO, 
+			CASE WHEN CGORY_NO='101' THEN '[일반]' 
+				WHEN CGORY_NO='102' THEN '[필독]' 
+				WHEN CGORY_NO='103' THEN '[인사]'
+				ELSE '[일정]' END AS CGORY_NO,  
+			EMP_ID,EMP_NAME, EBOARD_TITLE,
+			EBOARD_READCOUNT, TO_CHAR(EBOARD_REGDATE, 'YYYY-MM-DD') EBOARD_REGDATE,EBOARD_DELFLAG
+		FROM ENTRBOARD
+		WHERE CGORY_NO = #{cgory_no}
+	</select>
+	
+	<!-- 사용자 게시글 숨김처리  -->
+	<update id="updEboardDelflagUser" parameterType="java.lang.String">
+		UPDATE ENTRBOARD SET EBOARD_DELFLAG = 'Y' WHERE EBOARD_NO = #{eboard_no}
+	</update>
+	
+	<!-- 사용자 공지게시판 게시글 입력 (일반,필독,인사)-->
+	<insert id="insEboardRoot" parameterType="java.util.Map">
+		INSERT INTO ENTRBOARD
+					(EBOARD_NO, GUBUN_NO, CGORY_NO,  
+					EMP_ID,EMP_NAME, EBOARD_TITLE, 
+					EBOARD_CONTENT, EBOARD_READCOUNT, EBOARD_REGDATE, EBOARD_DELFLAG)
+			VALUES(ENTRYBOARD_SEQ.NEXTVAL, '100', #{cgory_no}, 
+					#{emp_id},#{emp_name} , #{eboard_title}, 
+					#{eboard_content}, 0, CURRENT_DATE, 'N')
+	</insert>
+	
+	<!-- 사용자 공지게시판 게시글 입력2 (일정)-->
+	<insert id="insEboardCald" parameterType="java.util.Map">
+	INSERT INTO CALENDAR
+		(CALD_ID, CALD_START,CALD_END, CALD_COLOR)
+	VALUES
+		(SEQ_CALENDAR.NEXTVAL, TO_DATE(#{cald_start},'YYYY/MM/DD HH24:MI'),
+			TO_DATE(#{cald_end},'YYYY/MM/DD HH24:MI'),'red')
+	</insert>
+	<insert id="insCaldRoot" parameterType="java.util.Map">
+		INSERT INTO ENTRBOARD
+					(EBOARD_NO, GUBUN_NO, CGORY_NO,  
+					EMP_ID,CALD_ID,EMP_NAME, EBOARD_TITLE, 
+					EBOARD_CONTENT, EBOARD_READCOUNT, EBOARD_REGDATE, EBOARD_DELFLAG)
+			VALUES(ENTRYBOARD_SEQ.NEXTVAL, '100', '302', 
+					#{emp_id},(SELECT MAX(CALD_ID) FROM CALENDAR) ,#{emp_name} , #{eboard_title}, 
+					#{cald_content}, 0, CURRENT_DATE, 'N')
+	</insert>
+	
+	<!-- 사용자 게시글 입력시 업로드 파일이 있을 경우 파일정보 저장 -->
+	<insert id="insEboardAttach" parameterType="java.util.Map">
+			INSERT INTO FILELIST
+				(FLIST_SEQ, GUBUN_NO, EBOARD_NO , 
+				FLIST_UUID, FLIST_ORIGINNAME, FLIST_SIZE, 
+				FLIST_UPLOADPATH)
+			VALUES(SEQ_FILELIST.NEXTVAL, '100',(SELECT MAX(EBOARD_NO) FROM ENTRBOARD) , 
+			#{flist_uuid}, #{originname}, #{flist_size}, 
+			#{flist_uploadpath})
+	</insert>
+	
+	<!-- 관리자 게시글 보임/숨김처리 -->
+	<update id="updEboardDelfAdmin" parameterType="java.util.List">
+		UPDATE ENTRBOARD SET EBOARD_DELFLAG =  
+		CASE EBOARD_DELFLAG  WHEN 'N' THEN 'Y' ELSE 'N' END
+			WHERE EBOARD_NO IN
+		<foreach collection="list" item="eboard_no" open="(" separator="," close=")">
+			#{eboard_no}
+		</foreach>
+	</update>
+	
+	<!-- 관리자 게시글 DB삭제  -->
+	<delete id="delEboardRoot" parameterType="java.lang.String">
+		DELETE FROM ENTRBOARD e 
+ 		 WHERE e.EBOARD_NO = #{eboard_no}
+	</delete>
+	<delete id="delEboardAttach" parameterType="java.lang.String">
+		DELETE FROM FILELIST f 
+	WHERE EXISTS (SELECT 1 FROM ENTRBOARD e WHERE e.EBOARD_NO = f.EBOARD_NO AND f.EBOARD_NO = #{eboard_no})
+	</delete>
+	
+	<!-- 사용자 일정게시글의 일정 수정 -->
+	<update id="updEboardCald" parameterType="java.util.Map">
+	UPDATE CALENDAR 
+				SET CALD_START  = TO_DATE(#{cald_start},'YYYY/MM/DD HH24:MI'), 
+					CALD_END  = TO_DATE(#{cald_end},'YYYY/MM/DD HH24:MI')
+					WHERE CALD_ID=#{cald_id}
+	</update>
+	
+	<!-- 사용자 게시글 내용 수정 -->
+	<update id="updEboardRoot" parameterType="java.util.Map">
+		UPDATE ENTRBOARD SET EBOARD_CONTENT= #{eboard_content}
+		<choose>
+			<when test='cgory_no.equals("302")'>WHERE CALD_ID=#{cald_id}</when>
+			<otherwise>WHERE EBOARD_NO =#{eboard_no}</otherwise>
+		</choose>
+	</update>
+
+</mapper>
